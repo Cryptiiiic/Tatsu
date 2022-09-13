@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "pytatsu"
+version = "0.1.0"
+description = "A Python library/CLI tool for requesting and saving shsh blobs from apple's tatsu signing server api."
+authors = ["Cryptiiiic <liamwqs@gmail.com>"]
+license = "lgpl-3.0"
+readme = "README.md"
+repository = "https://github.com/Cryptiiiic/Tatsu"
+
+packages = [
+    { include = "pytatsu" },
+    { include = "pytatsu/**/*.py" },
+]
+
+[tool.poetry.scripts]
+Tatsu = "pytatsu.__main__:cli"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pybmtool = "^0.1.1"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/Cryptiiiic/Tatsu/issues"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
