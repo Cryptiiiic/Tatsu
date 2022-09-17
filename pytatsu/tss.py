@@ -6,6 +6,7 @@ import hashlib
 import binascii
 import aiohttp
 import asyncio
+from typing import Optional, List
 
 
 class TSS:
@@ -17,18 +18,18 @@ class TSS:
         generator: str = "",
         apnonce: str = "",
         sepnonce: str = "",
-        buildManifestPath: str = "",
-        componentList=None,
+        build_manifest_path: str = "",
+        component_list: Optional[List[str]] = None,
     ):
-        self.bm = BMParse(buildManifestPath=buildManifestPath)
+        self.bm = BMParse(buildManifestPath=build_manifest_path)
         self.manifest = self.bm.manifest
         self.identity = self.bm.getBoardIdentity(board=board, update=update)
         self.chipid = int(self.identity.get("ApChipID", None), 16)
-        self.libAuthInstallVersion = "850.0.2"
-        self.tssVersionString = f"libauthinstall-{self.libAuthInstallVersion}"
-        self.doGenSHA = False
-        self.generatorString = ""
-        self.sepGeneratorString = ""
+        self.libauthinstallversion = "850.0.2"
+        self.tss_version = f"libauthinstall-{self.libauthinstallversion}"
+        self.do_gen_sha = False
+        self.generator_string = ""
+        self.sep_generator_string = ""
         self.generator = b""
         self.apnonce = b""
         self.sepnonce = b""
@@ -37,8 +38,8 @@ class TSS:
         self.bbgoldcertid = 0
         self.parameters = {}
         self.request = {}
-        self.componentList = []
-        self.tatsuURLS = [
+        self.component_list = []
+        self.tatsu_urls = [
             "https://gs.apple.com/TSS/controller?action=2",
             "https://17.111.103.65/TSS/controller?action=2",
             "https://17.111.103.15/TSS/controller?action=2",
@@ -48,32 +49,32 @@ class TSS:
         ]
         if self.chipid < 1:
             raise ValueError("Could not get ChipID!")
-        if componentList is None:
-            self.componentList = []
+        if component_list is None:
+            self.component_list = []
         else:
-            self.componentList = componentList
-        self.tatsuSetupNonces(generator, apnonce, sepnonce)
-        self.tatsuInitParameters()
-        self.tatsuInitRequest()
+            self.component_list = component_list
+        self.setup_nonces(generator, apnonce, sepnonce)
+        self.init_parameters()
+        self.init_request()
 
-    def tatsuSetupNonces(self, generator: str, apnonce: str, sepnonce: str):
+    def setup_nonces(self, generator: str, apnonce: str, sepnonce: str):
         if len(generator) < 1:
-            self.generatorString = binascii.hexlify(
+            self.generator_string = binascii.hexlify(
                 bytearray(random.getrandbits(8) for _ in range(8))
             ).decode("utf-8")
-            self.generator = binascii.unhexlify(self.generatorString)
-            self.doGenSHA = True
+            self.generator = binascii.unhexlify(self.generator_string)
+            self.do_gen_sha = True
         else:
-            self.generatorString = generator.strip("0x")
+            self.generator_string = generator.strip("0x")
             self.generator = binascii.unhexlify(
-                bytes(self.generatorString.encode("iso-8859-15"))
+                bytes(self.generator_string.encode("iso-8859-15"))
             )
         if len(apnonce) < 1:
-            self.doGenSHA = True
+            self.do_gen_sha = True
         else:
-            if not self.doGenSHA:
+            if not self.do_gen_sha:
                 self.apnonce = binascii.unhexlify(bytes(apnonce.encode("iso-8859-15")))
-        if self.doGenSHA:
+        if self.do_gen_sha:
             if self.chipid >= 0x8010:
                 apsha = hashlib.sha384()
                 apsha.update(self.generator)
@@ -83,10 +84,10 @@ class TSS:
                 apsha.update(self.generator)
                 self.apnonce = apsha.digest()
         if len(sepnonce) < 1:
-            self.sepGeneratorString = binascii.hexlify(
+            self.sep_generator_string = binascii.hexlify(
                 bytearray(random.getrandbits(8) for _ in range(8))
             ).decode("utf-8")
-            sepgenerator = binascii.unhexlify(self.sepGeneratorString)
+            sepgenerator = binascii.unhexlify(self.sep_generator_string)
             if self.chipid >= 0x8010:
                 sepsha = hashlib.sha384()
                 sepsha.update(sepgenerator)
@@ -98,7 +99,7 @@ class TSS:
         else:
             self.sepnonce = binascii.unhexlify(bytes(sepnonce.encode("iso-8859-15")))
 
-    def tatsuInitFromIdentity(self):
+    def init_from_identity(self):
         if self.parameters is None:
             self.parameters = {}
         if len(self.identity) < 1:
@@ -165,7 +166,7 @@ class TSS:
             if key in entries:
                 self.parameters[key] = value
 
-    def tatsuInitIMG4(self):
+    def init_img4(self):
         if (
             self.parameters.get("BbChipID", None)
             and len(self.bbsnum) > 0
@@ -187,7 +188,7 @@ class TSS:
         }
         self.parameters.update(parameters)
 
-    def tatsuInitRestoreRequestRules(self, manifestEntry: dict):
+    def init_restore_request_rules(self, manifestEntry: dict):
         if len(manifestEntry) < 1:
             raise ValueError("Manifest entry is empty!")
         if len(self.parameters) < 1:
@@ -219,7 +220,7 @@ class TSS:
         if manifestEntry.get("Info", None):
             manifestEntry.pop("Info")
 
-    def tatsuInitComponents(self):
+    def init_components(self):
         manifest = self.parameters["Manifest"]
         for key, value in list(manifest.items()):
             if not value.get("Info", None):
@@ -245,35 +246,35 @@ class TSS:
                         manifest.pop(key)
                         continue
             add = False
-            if len(self.componentList) < 1:
+            if len(self.component_list) < 1:
                 add = True
-            elif key in self.componentList:
+            elif key in self.component_list:
                 add = True
             if add:
                 self.parameters[key] = value
                 if value.get("Trusted", None) and not value.get("Digest", None):
                     self.parameters[key]["Digest"] = b""
-                self.tatsuInitRestoreRequestRules(manifestEntry=self.parameters[key])
+                self.init_restore_request_rules(manifestEntry=self.parameters[key])
         del self.parameters["Manifest"]
 
-    def tatsuInitParameters(self):
+    def init_parameters(self):
         self.parameters = {
             "@BBTicket": bool(False),
             "@Locality": str("en_US"),
             "@HostPlatformInfo": str("mac"),
-            "@VersionInfo": str(self.tssVersionString),
+            "@VersionInfo": str(self.tss_version),
             "@UUID": str(uuid.uuid1()).upper(),
         }
-        self.tatsuInitFromIdentity()
-        self.tatsuInitIMG4()
-        self.tatsuInitComponents()
+        self.init_from_identity()
+        self.init_img4()
+        self.init_components()
 
-    def tatsuInitRequest(self):
+    def init_request(self):
         self.request = plistlib.dumps(self.parameters)
 
-    async def tatsuRequestSend_(self):
+    async def __send_request(self):
         async with aiohttp.ClientSession() as session:
-            if "https" in self.tatsuURLS[0]:
+            if "https" in self.tatsu_urls[0]:
                 ssl = True
             else:
                 ssl = False
@@ -284,7 +285,7 @@ class TSS:
             }
             # proxy="http://127.0.0.1:8888",
             async with session.post(
-                url=self.tatsuURLS[0], headers=headers, data=self.request, ssl=ssl
+                url=self.tatsu_urls[0], headers=headers, data=self.request, ssl=ssl
             ) as response:
                 blobResponse = await response.text()
                 if blobResponse[:9] == "STATUS=94":
@@ -298,17 +299,17 @@ class TSS:
                     "STATUS=0&MESSAGE=SUCCESS&REQUEST_STRING="
                 )
                 blobResponse = plistlib.loads(blobResponse.encode("utf-8"))
-                if len(self.generatorString) > 0:
-                    blobResponse["generator"] = f"0x{self.generatorString}"
-                if len(self.sepGeneratorString) > 0:
-                    blobResponse["sepgenerator"] = f"0x{self.sepGeneratorString}"
+                if len(self.generator_string) > 0:
+                    blobResponse["generator"] = f"0x{self.generator_string}"
+                if len(self.sep_generator_string) > 0:
+                    blobResponse["sepgenerator"] = f"0x{self.sep_generator_string}"
                 blobResponse = plistlib.dumps(blobResponse)
                 with open("blob.shsh2", "wb+") as blob:
                     blob.write(blobResponse)
 
-    def tatsuRequestSend(self):
+    def send_request(self):
         if len(self.request) < 1:
             raise ValueError("Request is empty!")
         # print(str(self.request).replace("\\n", "\n").replace("\\t", "\t"))
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.tatsuRequestSend_())
+        loop.run_until_complete(self.__send_request())

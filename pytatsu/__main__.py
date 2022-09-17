@@ -5,17 +5,17 @@ import os
 def cli():
     tss = pytatsu.TSS(
         board="d63ap",
-        update=False,
         ecid=0x69,
+        update=False,
         generator="0x1111111111111111",
         apnonce="",
         sepnonce="",
-        buildManifestPath=f"{os.getcwd()}/BuildManifest.plist",
-        componentList=[
+        build_manifest_path=f"{os.getcwd()}/BuildManifest.plist",
+        component_list=[
             "Rap,RTKitOS",
         ],
     )
-    tss.tatsuRequestSend()
+    tss.send_request()
 
 
 if __name__ == "__main__":
