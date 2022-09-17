@@ -1,9 +1,9 @@
-from pytatsu.tss import TSS
+import pytatsu
 import os
 
 
 def cli():
-    tss = TSS(
+    tss = pytatsu.TSS(
         board="d63ap",
         update=False,
         ecid=0x69,
