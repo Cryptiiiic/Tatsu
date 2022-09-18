@@ -1,3 +1,5 @@
+from .tss import TSS
+
 try:
     from importlib.metadata import version
 except ModuleNotFoundError:
