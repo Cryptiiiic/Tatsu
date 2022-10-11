@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytatsu"
-version = "0.1.2"
+version = "0.1.3"
 description = "A Python library/CLI tool for requesting and saving SHSH blobs from Apple's Tatsu signing server API."
 authors = ["Cryptiiiic <liamwqs@gmail.com>"]
 license = "LGPL-3.0-only"
