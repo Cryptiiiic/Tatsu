@@ -78,7 +78,6 @@ class TSS:
             if self.chipid >= 0x8010:
                 apsha = hashlib.sha384()
                 apsha.update(self.generator)
-                print(type(apsha.digest()))
                 self.apnonce = apsha.digest()[:32]
             else:
                 apsha = hashlib.sha1()
