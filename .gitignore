@@ -8,3 +8,6 @@ __pycache__
 .idea/
 .DS_Store
 pytatsu/Legacy/
+*.plist
+Firmware
+AssetData

@@ -1,4 +1,4 @@
-from pybmtool.BMParse import BMParse
+import pybmtool
 import plistlib
 import uuid
 import random
@@ -21,9 +21,9 @@ class TSS:
         build_manifest_path: str = "",
         component_list: Optional[List[str]] = None,
     ):
-        self.bm = BMParse(buildManifestPath=build_manifest_path)
+        self.bm = pybmtool.BMParse(build_manifest_path=build_manifest_path)
         self.manifest = self.bm.manifest
-        self.identity = self.bm.getBoardIdentity(board=board, update=update)
+        self.identity = self.bm.get_board_identity(board=board, update=update)
         self.chipid = int(self.identity.get("ApChipID", None), 16)
         self.libauthinstallversion = "850.0.2"
         self.tss_version = f"libauthinstall-{self.libauthinstallversion}"
