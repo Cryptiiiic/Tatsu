@@ -23,6 +23,8 @@ class TSS:
     ):
         self.bm = pybmtool.BMParse(build_manifest_path=build_manifest_path)
         self.manifest = self.bm.manifest
+        self.product_build_version = self.manifest.get("ProductBuildVersion", "Unknown")
+        self.product_version = self.manifest.get("ProductVersion", "Unknown")
         self.identity = self.bm.get_board_identity(board=board, update=update)
         self.chipid = int(self.identity.get("ApChipID", None), 16)
         self.libauthinstallversion = "850.0.2"
@@ -53,6 +55,8 @@ class TSS:
             self.component_list = []
         else:
             self.component_list = component_list
+        print(f"Selected device: {board}")
+        print(f"Selected version: {self.product_version}({self.product_build_version})")
         self.setup_nonces(generator, apnonce, sepnonce)
         self.init_parameters()
         self.init_request()
@@ -188,21 +192,21 @@ class TSS:
         }
         self.parameters.update(parameters)
 
-    def init_restore_request_rules(self, manifestEntry: dict):
-        if len(manifestEntry) < 1:
+    def init_restore_request_rules(self, manifest_entry: dict):
+        if len(manifest_entry) < 1:
             raise ValueError("Manifest entry is empty!")
         if len(self.parameters) < 1:
             raise ValueError("Parameters are empty!")
-        rules = manifestEntry["Info"]["RestoreRequestRules"]
+        rules = manifest_entry["Info"]["RestoreRequestRules"]
         if rules:
             for entry in rules:
                 if not entry.get("Conditions") or not entry.get("Actions"):
                     break
                 else:
-                    conditionsKey, conditionsValue = next(
+                    conditions_key, conditions_value = next(
                         iter(entry["Conditions"].items()), (None, None)
                     )
-                    actionsKey, actionsValue = next(
+                    actions_key, actions_value = next(
                         iter(entry["Actions"].items()), (None, None)
                     )
                     key_dict = {
@@ -213,12 +217,12 @@ class TSS:
                         "ApDemotionPolicyOverride": "DemotionPolicy",
                         "ApInRomDFU": "ApInRomDFU",
                     }
-                    paramValue = self.parameters.get(key_dict[conditionsKey], False)
-                    if paramValue and conditionsValue:
-                        if not manifestEntry.get(actionsKey, None):
-                            manifestEntry[actionsKey] = actionsValue
-        if manifestEntry.get("Info", None):
-            manifestEntry.pop("Info")
+                    param_value = self.parameters.get(key_dict[conditions_key], False)
+                    if param_value and conditions_value:
+                        if not manifest_entry.get(actions_key, None):
+                            manifest_entry[actions_key] = actions_value
+        if manifest_entry.get("Info", None):
+            manifest_entry.pop("Info")
 
     def init_components(self):
         manifest = self.parameters["Manifest"]
@@ -254,7 +258,7 @@ class TSS:
                 self.parameters[key] = value
                 if value.get("Trusted", None) and not value.get("Digest", None):
                     self.parameters[key]["Digest"] = b""
-                self.init_restore_request_rules(manifestEntry=self.parameters[key])
+                self.init_restore_request_rules(manifest_entry=self.parameters[key])
         del self.parameters["Manifest"]
 
     def init_parameters(self):
@@ -287,25 +291,25 @@ class TSS:
             async with session.post(
                 url=self.tatsu_urls[0], headers=headers, data=self.request, ssl=ssl
             ) as response:
-                blobResponse = await response.text()
-                if blobResponse[:9] == "STATUS=94":
+                blob_response = await response.text()
+                if blob_response[:9] == "STATUS=94":
                     print("This device isn't eligible for the requested build.")
                     return
-                if blobResponse[:8] != "STATUS=0":
+                if blob_response[:8] != "STATUS=0":
                     print("Invalid tatsu response!")
                     return
                 print("Successfully saved blobs!")
-                blobResponse = blobResponse.strip(
+                blob_response = blob_response.strip(
                     "STATUS=0&MESSAGE=SUCCESS&REQUEST_STRING="
                 )
-                blobResponse = plistlib.loads(blobResponse.encode("utf-8"))
+                blob_response = plistlib.loads(blob_response.encode("utf-8"))
                 if len(self.generator_string) > 0:
-                    blobResponse["generator"] = f"0x{self.generator_string}"
+                    blob_response["generator"] = f"0x{self.generator_string}"
                 if len(self.sep_generator_string) > 0:
-                    blobResponse["sepgenerator"] = f"0x{self.sep_generator_string}"
-                blobResponse = plistlib.dumps(blobResponse)
+                    blob_response["sepgenerator"] = f"0x{self.sep_generator_string}"
+                blob_response = plistlib.dumps(blob_response)
                 with open("blob.shsh2", "wb+") as blob:
-                    blob.write(blobResponse)
+                    blob.write(blob_response)
 
     def send_request(self):
         if len(self.request) < 1:
