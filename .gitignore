@@ -1,0 +1,8 @@
+*.idea
+cmake-*
+*.tar
+*.zst
+.DS_Store
+*.bin
+*.plist
+*.shsh2
