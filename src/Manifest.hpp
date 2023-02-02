@@ -17,7 +17,7 @@ enum restoreVariants {
 
 class Manifest {
 private:
-    PList::Node *mBuildIdentitiesArray = nullptr;
+    PList::Array *mBuildIdentitiesArray = nullptr;
     PList::Node *mManifestVersion = nullptr;
     PList::Node *mProductBuildVersion = nullptr;
     PList::Node *mProductVersion = nullptr;

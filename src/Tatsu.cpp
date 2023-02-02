@@ -103,7 +103,15 @@ bool Tatsu::initFromIdentity() {
         return false;
     }
     for(const std::string& entry: entries) {
-        auto find = *reinterpret_cast<PList::Dictionary *>(this->mManifest->pIdentity)->Find(entry);
+        auto ident = reinterpret_cast<PList::Dictionary *>(this->mManifest->pIdentity);
+        if(!ident) {
+            continue;
+        }
+        auto identIter = ident->Find(entry);
+        auto find = *identIter;
+        if(!validateString(find.first)) {
+            continue;
+        }
         if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
             this->mParameters->Set(entry, find.second);
         }
@@ -127,7 +135,12 @@ bool Tatsu::initIMG4() {
 }
 
 bool Tatsu::initComponents() {
-    PList::Node *manifestOrig = reinterpret_cast<PList::Dictionary *>(this->mManifest->pIdentity)->Find("Manifest")->second;
+    auto identDict = reinterpret_cast<PList::Dictionary *>(this->mManifest->pIdentity);
+    if(!identDict) {
+        return false;
+    }
+    auto manifestDict = identDict->Find("Manifest");
+    PList::Node *manifestOrig = manifestDict->second;
     if(!manifestOrig) {
         return false;
     }
@@ -137,6 +150,9 @@ bool Tatsu::initComponents() {
     std::array<std::string, 4> keys = { "BasebandFirmware", "SE,UpdatePayload", "BaseSystem", "Diags" };
     for(auto &k : keys) {
         auto find = *manifest->Find(k);
+        if(!validateString(find.first)) {
+            continue;
+        }
         if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
             manifest->Remove(manifest->Find(k)->second);
         }
@@ -181,6 +197,9 @@ bool Tatsu::initComponents() {
             auto find3 = *dict->Find("Trusted");
             if(!find3.first.empty() && find3.second->GetType() != PLIST_NULL && find3.second->GetType() != PLIST_NONE) {
                 auto find4 = *dict->Find("Digest");
+                if(!validateString(find4.first)) {
+                    continue;
+                }
                 if(!find4.first.empty() && find4.second->GetType() != PLIST_NULL && find4.second->GetType() != PLIST_NONE) {
                     auto vec = reinterpret_cast<PList::Data *>(find4.second)->GetValue();
                     if(reinterpret_cast<PList::Data *>(find4.second)->GetValue().empty()) {

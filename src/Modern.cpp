@@ -46,7 +46,7 @@ namespace PList {
             switch (type)
             {
                 case PLIST_DICT:
-                    ret = std::reinterpret_pointer_cast<ModernNode>(std::make_shared<Dictionary>(Dictionary(node, parent)));
+                    ret = std::reinterpret_pointer_cast<ModernNode>(std::make_shared<Dictionary>(node, parent));
                     break;
                 case PLIST_ARRAY:
                     ret = std::reinterpret_pointer_cast<ModernNode>(std::make_shared<Array>(node, parent));

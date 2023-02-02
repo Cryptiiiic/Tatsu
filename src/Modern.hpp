@@ -25,12 +25,12 @@ namespace PList {
         static std::shared_ptr<ModernNode>FromPlist(plist_t node, ModernNode *parent = nullptr);
     };
 
-     class ModernDictionary : Dictionary {
-     public:
-        auto begin () { return this->Begin(); }
-        auto end () { return this->End(); }
-     private:
-    };
+//     class ModernDictionary : Dictionary {
+//     public:
+//        auto begin () { return this->Begin(); }
+//        auto end () { return this->End(); }
+//     private:
+//    };
 }
 
 

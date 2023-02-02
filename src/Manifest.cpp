@@ -19,32 +19,32 @@ Manifest::Manifest(std::string path) : mManifestPath(std::move(path)) {
         return;
     }
 //    this->mManifest = this->mManifestStructure->GetPlist();
-    if(!std::reinterpret_pointer_cast<PList::Dictionary>(this->mManifestStructure)->size()) {
+    if(!reinterpret_cast<PList::Dictionary *>(this->mManifestStructure.get())->size()) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is empty!\n", __PRETTY_FUNCTION__);
         return;
     }
-    this->mBuildIdentitiesArray = std::reinterpret_pointer_cast<PList::Dictionary>(this->mManifestStructure)->Find("BuildIdentities")->second;
-    this->mManifestVersion = std::reinterpret_pointer_cast<PList::Dictionary>(this->mManifestStructure)->Find("ManifestVersion")->second;
-    this->mProductBuildVersion = std::reinterpret_pointer_cast<PList::Dictionary>(this->mManifestStructure)->Find("ProductBuildVersion")->second;
-    this->mProductVersion = std::reinterpret_pointer_cast<PList::Dictionary>(this->mManifestStructure)->Find("ProductVersion")->second;
-    this->mSupportedProductTypesArray = std::reinterpret_pointer_cast<PList::Dictionary>(this->mManifestStructure)->Find("SupportedProductTypes")->second;
-    if(!this->mBuildIdentitiesArray) {
+    this->mBuildIdentitiesArray = reinterpret_cast<PList::Array *>(reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("BuildIdentities")->second);
+    this->mManifestVersion = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("ManifestVersion")->second;
+    this->mProductBuildVersion = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("ProductBuildVersion")->second;
+    this->mProductVersion = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("ProductVersion")->second;
+    this->mSupportedProductTypesArray = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("SupportedProductTypes")->second;
+    if(!this->mBuildIdentitiesArray || !this->mBuildIdentitiesArray->GetSize() || !this->mBuildIdentitiesArray->size() || this->mBuildIdentitiesArray->GetType() != PLIST_ARRAY) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is missing BuildIdentities array!\n", __PRETTY_FUNCTION__);
         return;
     }
-    if(!this->mManifestVersion) {
+    if(this->mManifestVersion->GetType() != PLIST_INT) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is missing ManifestVersion!\n", __PRETTY_FUNCTION__);
         return;
     }
-    if(!this->mProductBuildVersion) {
+    if(this->mProductBuildVersion->GetType() != PLIST_STRING) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is missing ProductBuildVersion!\n", __PRETTY_FUNCTION__);
         return;
     }
-    if(!this->mProductVersion) {
+    if(this->mProductVersion->GetType() != PLIST_STRING) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is missing ProductVersion!\n", __PRETTY_FUNCTION__);
         return;
     }
-    if(!this->mSupportedProductTypesArray) {
+    if(this->mSupportedProductTypesArray->GetType() != PLIST_ARRAY) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is missing SupportedProductTypes array!\n", __PRETTY_FUNCTION__);
         return;
     }
@@ -54,7 +54,7 @@ bool Manifest::matchIdentity(int chipID, std::string deviceClass, int variant, b
     if(this->pIdentity && !overwrite) {
         return true;
     }
-    if(!((PList::Array *)(this->mBuildIdentitiesArray))->size()) {
+    if(!this->mBuildIdentitiesArray->size()) {
         fmt::print(fg(fmt::color::crimson), "{0}: build identities array is empty!\n", __PRETTY_FUNCTION__);
         return false;
     }

@@ -98,7 +98,7 @@ public:
     bool initIMG4();
     bool initComponents();
     bool initRestoreRequestRules(PList::Node *entry);
-    ~Tatsu();
+    virtual ~Tatsu();
 };
 
 

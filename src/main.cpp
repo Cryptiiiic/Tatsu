@@ -5,9 +5,11 @@
 #include <fmt/color.h>
 
 int main() {
-    std::vector<std::unique_ptr<Manifest>> manifestList{};
-    std::vector<std::unique_ptr<Tatsu>> tatsuList{};
-    manifestList.emplace_back(std::move(std::make_unique<Manifest>(fmt::format("{0}/{1}", std::string(std::filesystem::current_path()), std::string("BuildManifest.plist")))));
-    tatsuList.emplace_back(std::move(std::make_unique<Tatsu>(manifestList[0].get(), 0x8000, "n71ap", 0x69, ERASE, 0x1111111111111111)));
+    std::vector<std::shared_ptr<Manifest>> manifestList{};
+    std::vector<std::shared_ptr<Tatsu>> tatsuList{};
+    auto tmp = std::make_shared<Manifest>(fmt::format("{0}/{1}", std::string(std::filesystem::current_path()), std::string("BuildManifest.plist")));
+    manifestList.emplace_back(tmp);
+    auto tmp2 = std::move(std::make_shared<Tatsu>(tmp.get(), 0x8000, "n71ap", 0x69, ERASE, 0x1111111111111111));
+    tatsuList.emplace_back(tmp2);
     return 0;
 }
