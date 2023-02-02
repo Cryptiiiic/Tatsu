@@ -6,10 +6,10 @@
 
 #include <utility>
 #include <random>
+#include <iostream>
 #include <fmt/color.h>
 #include <digestpp/digestpp.hpp>
 #include <chrono>
-#include <iostream>
 #include <unordered_map>
 #include <Timer.hpp>
 #include <Requests.hpp>
@@ -17,7 +17,6 @@
 
 Tatsu::Tatsu(Manifest *manifest, int chipID, std::string deviceClass, uint64_t ECID, int variant, uint64_t generator, std::string apNonce, std::string sepNonce, std::vector<std::string> componentList)
 : mManifest(manifest), mChipID(chipID), mDeviceClass(std::move(deviceClass)), mECID(ECID), mVariant(variant), mGenerator(generator), mAPNonce(std::move(apNonce)), mSEPNonce(std::move(sepNonce)), mComponentList(std::move(componentList)) {
-    TIMER_START();
     if(!this->mManifest) {
         return;
     }
@@ -39,7 +38,6 @@ Tatsu::Tatsu(Manifest *manifest, int chipID, std::string deviceClass, uint64_t E
         std::uniform_int_distribution<std::mt19937_64::result_type> distributionRNG(0, UINT64_MAX);
         this->mGenerator = distributionRNG(rng);
     }
-//    fmt::print(fg(fmt::color::forest_green), "generator: 0x{0:16X}\n", this->mGenerator);
     if(this->mAPNonce.empty()) {
         std::string apnonce;
         if(this->mChipID < 0x8010) {
@@ -48,19 +46,20 @@ Tatsu::Tatsu(Manifest *manifest, int chipID, std::string deviceClass, uint64_t E
             digestpp::sha1().reset();
             digestpp::sha1().absorb(reinterpret_cast<const char *>(&this->mGenerator), 8).digest<unsigned char>(this->mAPNonceDGST, 32);
             this->mAPNonce = apnonce;
+            this->mAPNonceDGSTVector.insert(this->mAPNonceDGSTVector.end(), this->mAPNonceDGST, this->mAPNonceDGST + 20);
         } else {
             digestpp::sha384().reset();
             apnonce = digestpp::sha384().absorb(reinterpret_cast<const char *>(&this->mGenerator), 8).hexdigest();
             apnonce.resize(64);
             digestpp::sha384().reset();
             digestpp::sha384().absorb(reinterpret_cast<const char *>(&this->mGenerator), 8).digest<unsigned char>(this->mAPNonceDGST, 64);
+            this->mAPNonceDGSTVector.insert(this->mAPNonceDGSTVector.end(), this->mAPNonceDGST, this->mAPNonceDGST + 40);
             this->mAPNonce = apnonce;
         }
         if (apnonce.empty()) {
             return;
         }
     }
-//    fmt::print(fg(fmt::color::forest_green), "apnonce: {0:s}\n", this->mAPNonce);
     if(this->mSEPNonce.empty()) {
         std::random_device rngDevice;
         std::mt19937 rng(rngDevice());
@@ -70,13 +69,13 @@ Tatsu::Tatsu(Manifest *manifest, int chipID, std::string deviceClass, uint64_t E
         this->mSEPNonce = digestpp::sha1().absorb(reinterpret_cast<const char *>(&this->mTMPGenerator), 8).hexdigest();
         digestpp::sha1().reset();
         digestpp::sha1().absorb(reinterpret_cast<const char *>(&this->mTMPGenerator), 8).digest<unsigned char>(this->mSEPNonceDGST, 32);
-//        fmt::print(fg(fmt::color::forest_green), "sepnonce: {0:s}\n", this->mSEPNonce);
+        this->mSEPNonceDGSTVector.insert(this->mSEPNonceDGSTVector.end(), this->mSEPNonceDGST, this->mSEPNonceDGST + 20);
     }
     this->initParameters();
-//    debug_plist(this->mParameters);
     uint32_t size = 0;
     char* data = nullptr;
-    int ret = plist_to_xml(this->mParameters, &data, &size);
+//    debug_plist(this->mParameters->GetPlist());
+    int ret = plist_to_xml(this->mParameters->GetPlist(), &data, &size);
     std::string body(data);
     auto *rq = new Requests();
     if(ret == PLIST_ERR_SUCCESS) {
@@ -84,20 +83,19 @@ Tatsu::Tatsu(Manifest *manifest, int chipID, std::string deviceClass, uint64_t E
     } else {
         fmt::print(fmt::fg(fmt::color::crimson), "{0}: Failed to convert plist to xml error: {1}\n", __PRETTY_FUNCTION__, ret);
     }
-    TIMER_STOP();
 }
 
 bool Tatsu::initParameters() {
-    this->mParameters = plist_new_dict();
-    plist_dict_set_item(this->mParameters, "@BBTicket", plist_new_bool(false));
-    plist_dict_set_item(this->mParameters, "@Locality", plist_new_string("en_US"));
-    plist_dict_set_item(this->mParameters, "@HostPlatformInfo", plist_new_string("mac"));
-    plist_dict_set_item(this->mParameters, "@VersionInfo", plist_new_string(TSS_VERSION_STRING));
-    plist_dict_set_item(this->mParameters, "@UUID", plist_new_string(generateUUID().c_str()));
+    this->mParameters = std::make_unique<PList::Dictionary>(new PList::Dictionary);
+    this->mParameters->Set("@BBTicket", std::make_unique<PList::Boolean>(false).get());
+    this->mParameters->Set("@Locality", std::make_unique<PList::String>(std::string("en_US")).get());
+    this->mParameters->Set("@HostPlatformInfo", std::make_unique<PList::String>(std::string("mac")).get());
+    this->mParameters->Set("@VersionInfo", std::make_unique<PList::String>(std::string(TSS_VERSION_STRING)).get());
+    this->mParameters->Set("@UUID", std::make_unique<PList::String>(std::string(generateUUID())).get());
     this->initFromIdentity();
     this->initIMG4();
     this->initComponents();
-    return false;
+    return true;
 }
 
 bool Tatsu::initFromIdentity() {
@@ -105,156 +103,154 @@ bool Tatsu::initFromIdentity() {
         return false;
     }
     for(const std::string& entry: entries) {
-            if(plist_dict_get_item(this->mManifest->pIdentity, entry.c_str())) {
-                plist_dict_set_item(this->mParameters, entry.c_str(),
-                                    plist_copy(plist_dict_get_item(this->mManifest->pIdentity, entry.c_str())));
-            }
-    }
-    return false;
-}
-
-bool Tatsu::initIMG4() {
-    if(!this->mBasebandSerialNumber.empty() && this->mBasebandGoldCertID > 0) {
-        plist_dict_set_item(this->mParameters, "@BBTicket", plist_new_bool(true));
-        plist_dict_set_item(this->mParameters, "BbSNUM", plist_new_string(this->mBasebandSerialNumber.c_str()));
-        plist_dict_set_item(this->mParameters, "BbGoldCertId", plist_new_uint(this->mBasebandGoldCertID));
-    }
-    plist_dict_set_item(this->mParameters, "@ApImg4Ticket", plist_new_bool(true));
-    plist_dict_set_item(this->mParameters, "ApSecurityMode", plist_new_bool(true));
-    plist_dict_set_item(this->mParameters, "ApProductionMode", plist_new_bool(true));
-    plist_dict_set_item(this->mParameters, "ApNonce", plist_new_data(reinterpret_cast<const char *>(this->mAPNonceDGST), this->mAPNonce.length() / 2));
-    plist_dict_set_item(this->mParameters, "SepNonce", plist_new_data(reinterpret_cast<const char *>(this->mSEPNonceDGST), this->mSEPNonce.length() / 2));
-    plist_dict_set_item(this->mParameters, "ApECID", plist_new_uint(this->mECID));
-    return false;
-}
-
-bool Tatsu::initComponents() {
-    plist_dict_iter iter = nullptr;
-    char *key = nullptr;
-    plist_t val = nullptr;
-    plist_t subPlist = nullptr;
-    plist_t manifest = plist_copy(plist_dict_get_item(this->mManifest->pIdentity, "Manifest"));
-    if(!manifest) {
-        return false;
-    }
-    std::array<const char *, 4> keys = { "BasebandFirmware", "SE,UpdatePayload", "BaseSystem", "Diags" };
-    for(auto k : keys) {
-        if(plist_dict_get_item(manifest, k)) {
-            plist_dict_remove_item(manifest, k);
+        auto find = *reinterpret_cast<PList::Dictionary *>(this->mManifest->pIdentity)->Find(entry);
+        if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
+            this->mParameters->Set(entry, find.second);
         }
-    }
-    uint32_t count = plist_dict_get_size(manifest);
-    if(!count) {
-        return false;
-    }
-    plist_dict_new_iter(manifest, &iter);
-    if(!iter) {
-        return false;
-    }
-    do {
-        plist_dict_next_item(manifest, iter, &key, &val);
-        if(key) {
-            std::string tmp(key);
-            if(!plist_dict_get_item(val, "Info")) {
-                plist_dict_remove_item(manifest, key);
-                continue;
-            } else {
-                if(!plist_dict_get_item(plist_dict_get_item(val, "Info"), "RestoreRequestRules")) {
-                    plist_dict_remove_item(manifest, key);
-                    continue;
-                }
-            }
-            bool addComponent = false;
-            addComponent = this->mComponentList.empty();
-            for(auto idx : this->mComponentList) {
-                std::cout << idx << std::endl;
-                if(std::equal(tmp.begin(), tmp.end(), idx.begin())) {
-                    addComponent = true;
-                    break;
-                }
-            }
-            if(addComponent) {
-                plist_t val2 = plist_copy(val);
-                plist_dict_set_item(this->mParameters, key, val2);
-                if(plist_dict_get_item(val2, "Trusted")) {
-                    char *digestVal = nullptr;
-                    uint64_t digestLen = 0;
-                    plist_get_data_val(plist_dict_get_item(val2, "Digest"), &digestVal, &digestLen);
-                    if(!digestLen && !digestVal) {
-                        plist_dict_set_item(val2, "Digest", plist_new_data(nullptr, 0));
-                    }
-                }
-                this->initRestoreRequestRules(val2);
-            }
-        }
-    } while(key);
-    if(plist_dict_get_item(manifest, "Manifest")) {
-        plist_dict_remove_item(manifest, "Manifest");
     }
     return true;
 }
 
-bool Tatsu::initRestoreRequestRules(plist_t entry) {
-    char *tmp = nullptr;
-    plist_dict_get_item_key(entry, &tmp);
-    plist_array_iter iter = nullptr;
-    plist_t subPlist = nullptr;
-    if(!entry) {
+bool Tatsu::initIMG4() {
+    if(!this->mBasebandSerialNumber.empty() && this->mBasebandGoldCertID > 0) {
+        this->mParameters->Set("@BBTicket", std::make_unique<PList::Boolean>(true).get());
+        this->mParameters->Set("BbSNUM", std::make_unique<PList::String>(std::string(this->mBasebandSerialNumber)).get());
+        this->mParameters->Set("@BBTicket", std::make_unique<PList::Integer>(static_cast<int64_t>(this->mBasebandGoldCertID)).get());
+    }
+    this->mParameters->Set("@ApImg4Ticket", std::make_unique<PList::Boolean>(true).get());
+    this->mParameters->Set("ApSecurityMode", std::make_unique<PList::Boolean>(true).get());
+    this->mParameters->Set("ApProductionMode", std::make_unique<PList::Boolean>(true).get());
+    this->mParameters->Set("ApNonce", std::make_unique<PList::Data>(this->mAPNonceDGSTVector).get());
+    this->mParameters->Set("SepNonce", std::make_unique<PList::Data>(this->mAPNonceDGSTVector).get());
+    this->mParameters->Set("ApECID", std::make_unique<PList::Integer>(this->mECID).get());
+    return true;
+}
+
+bool Tatsu::initComponents() {
+    PList::Node *manifestOrig = reinterpret_cast<PList::Dictionary *>(this->mManifest->pIdentity)->Find("Manifest")->second;
+    if(!manifestOrig) {
         return false;
     }
-    plist_t rules = plist_dict_get_item(plist_dict_get_item(entry, "Info"), "RestoreRequestRules");
-    if(!rules) {
-        return false;
+    auto manifestSmart = std::make_unique<PList::Dictionary>(manifestOrig);
+    auto manifest = manifestSmart.get();
+    manifest = reinterpret_cast<PList::Dictionary *>(manifestOrig);
+    std::array<std::string, 4> keys = { "BasebandFirmware", "SE,UpdatePayload", "BaseSystem", "Diags" };
+    for(auto &k : keys) {
+        auto find = *manifest->Find(k);
+        if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
+            manifest->Remove(manifest->Find(k)->second);
+        }
     }
-    uint32_t count = plist_array_get_size(rules);
+    uint32_t count = manifest->size();
     if(!count) {
         return false;
     }
-    plist_array_new_iter(rules, &iter);
-    if(!iter) {
-        return false;
-    }
-    do {
-        plist_array_next_item(rules, iter, &subPlist);
-        if (subPlist) {
-            plist_t conditions = plist_dict_get_item(subPlist, "Conditions");
-            plist_t actions = plist_dict_get_item(subPlist, "Actions");
-            if(!conditions || !actions) {
-                break;
+    for(auto &it : *manifest) {
+        auto dict = reinterpret_cast<PList::Dictionary *>(it.second);
+        if(!it.first.empty() && it.second->GetType() != PLIST_NULL && it.second->GetType() != PLIST_NONE) {
+            // code not needed
+        } else {
+            continue;
+        }
+        auto find = *dict->Find("Info");
+        if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
+            auto find2 = *reinterpret_cast<PList::Dictionary *>(find.second)->Find("RestoreRequestRules");
+            if(!find2.first.empty() && find2.second->GetType() != PLIST_NULL && find2.second->GetType() != PLIST_NONE) {
+                // no code needed
             } else {
-                std::unordered_map<std::string, std::string> keyMap = {
-                        {"ApRawProductionMode", "ApProductionMode"},
-                        {"ApCurrentProductionMode", "ApProductionMode"},
-                        {"ApRawSecurityMode", "ApSecurityMode"},
-                        {"ApRequiresImage4", "ApSupportsImg4"},
-                        {"ApDemotionPolicyOverride", "DemotionPolicy"},
-                        {"ApInRomDFU", "ApInRomDFU"},
-                };
-                plist_dict_iter conditionsIter = nullptr;
-                char *conditionsKey = nullptr;
-                plist_t conditionsVal = nullptr;
-                plist_dict_new_iter(conditions, &conditionsIter);
-                plist_dict_next_item(conditions, conditionsIter, &conditionsKey, &conditionsVal);
-                plist_dict_iter actionsIter = nullptr;
-                char *actionsKey = nullptr;
-                plist_t actionsVal = nullptr;
-                plist_dict_new_iter(actions, &actionsIter);
-                plist_dict_next_item(actions, actionsIter, &actionsKey, &actionsVal);
-                tmp = nullptr;
-                plist_dict_get_item_key(conditionsVal, &tmp);
-                bool paramValue = false;
-                plist_get_bool_val(plist_dict_get_item(this->mParameters, keyMap.at(tmp).c_str()),
-                                   reinterpret_cast<uint8_t *>(&paramValue));
-                if(paramValue && conditionsVal) {
-                    plist_dict_set_item(entry, actionsKey, plist_new_bool(paramValue));
+                dict->Remove(find2.second);
+                continue;
+            }
+        } else {
+            dict->Remove(find.second);
+            continue;
+        }
 
+        bool addComponent = false;
+        addComponent = this->mComponentList.empty();
+        if(!addComponent) {
+            for(auto idx : this->mComponentList) {
+                std::cout << idx << std::endl;
+                if(std::equal(find.first.begin(), find.first.end(), idx.begin())) {
+                    addComponent = true;
+                    break;
                 }
             }
         }
-    } while(subPlist);
-    if(plist_dict_get_item(entry, "Info")) {
-        plist_dict_remove_item(entry, "Info");
+        if(addComponent) {
+            auto find3 = *dict->Find("Trusted");
+            if(!find3.first.empty() && find3.second->GetType() != PLIST_NULL && find3.second->GetType() != PLIST_NONE) {
+                auto find4 = *dict->Find("Digest");
+                if(!find4.first.empty() && find4.second->GetType() != PLIST_NULL && find4.second->GetType() != PLIST_NONE) {
+                    auto vec = reinterpret_cast<PList::Data *>(find4.second)->GetValue();
+                    if(reinterpret_cast<PList::Data *>(find4.second)->GetValue().empty()) {
+                        dict->Set("Digest", std::make_unique<PList::Data>().get());
+                    }
+                } else {
+                    dict->Set("Digest", std::make_unique<PList::Data>().get());
+                }
+            }
+            this->initRestoreRequestRules(it.second);
+            this->mParameters->Set(it.first, it.second);
+        }
     }
+    manifest->Remove("Manifest");
+    return true;
+}
+
+bool Tatsu::initRestoreRequestRules(PList::Node *entry) {
+    auto entryDict = reinterpret_cast<PList::Dictionary *>(entry);
+    auto info = *entryDict->Find("Info");
+    if(!info.first.empty() && info.second->GetType() != PLIST_NULL && info.second->GetType() != PLIST_NONE) {
+        auto restoreRequestRules = *reinterpret_cast<PList::Dictionary *>(info.second)->Find("RestoreRequestRules");
+        if(!restoreRequestRules.first.empty() && restoreRequestRules.second->GetType() != PLIST_NULL && restoreRequestRules.second->GetType() != PLIST_NONE) {
+            // no code needed
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+    auto restoreRequestRules = *reinterpret_cast<PList::Dictionary *>(info.second)->Find("RestoreRequestRules");
+    auto array = reinterpret_cast<PList::Array *>(restoreRequestRules.second);
+    if(!array->size()) {
+        return false;
+    }
+    for(auto & it : *array) {
+        if(!it) {
+            break;
+        }
+        auto dict = reinterpret_cast<PList::Dictionary *>(it);
+        auto conditions = *dict->Find("Conditions");
+        if(!conditions.first.empty() && conditions.second->GetType() != PLIST_NULL && conditions.second->GetType() != PLIST_NONE) {
+            // no code needed
+        } else {
+            break;
+        }
+        auto actions = *dict->Find("Actions");
+        if(!actions.first.empty() && actions.second->GetType() != PLIST_NULL && actions.second->GetType() != PLIST_NONE) {
+            // no code needed
+        } else {
+            break;
+        }
+        std::unordered_map<std::string, std::string> keyMap = {
+            {"ApRawProductionMode", "ApProductionMode"},
+            {"ApCurrentProductionMode", "ApProductionMode"},
+            {"ApRawSecurityMode", "ApSecurityMode"},
+            {"ApRequiresImage4", "ApSupportsImg4"},
+            {"ApDemotionPolicyOverride", "DemotionPolicy"},
+            {"ApInRomDFU", "ApInRomDFU"},
+        };
+        auto conditionsKey = reinterpret_cast<PList::Dictionary *>(conditions.second)->begin()->first;
+        auto conditionsValue = reinterpret_cast<PList::Dictionary *>(conditions.second)->begin()->second;
+        auto actionsKey = reinterpret_cast<PList::Dictionary *>(actions.second)->begin()->first;
+        auto actionsValue = reinterpret_cast<PList::Dictionary *>(actions.second)->begin()->second;
+        bool paramValue = reinterpret_cast<PList::Boolean *>(this->mParameters->Find(keyMap.at(conditionsKey))->second)->GetValue();
+        if(paramValue && conditionsValue) {
+            entryDict->Set(actionsKey, std::make_unique<PList::Boolean>(paramValue).get());
+        }
+    }
+    entryDict->Remove("Info");
     return true;
 }
 

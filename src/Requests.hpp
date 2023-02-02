@@ -12,10 +12,16 @@
 class Requests {
 private:
     ix::HttpClient *mHttpClient = nullptr;
+    ix::SocketTLSOptions *mTLS = nullptr;
+    ix::WebSocketHttpHeaders *mHeaders = nullptr;
+    ix::HttpRequestArgsPtr mArgs = nullptr;
     std::string mURL;
 public:
     Requests();
-    bool sendPOST(std::string &data);
+    void setupTLS();
+    void setupHeaders();
+    void setupArgs(const std::string &requestType, const std::string &body);
+    bool sendPOST(std::string &body);
     ~Requests();
 };
 

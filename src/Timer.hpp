@@ -8,9 +8,9 @@
 
 #include <chrono>
 
-std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> start;
-std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> stop;
-std::chrono::microseconds duration;
+static std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> start;
+static std::chrono::time_point<std::chrono::steady_clock, std::chrono::nanoseconds> stop;
+static std::chrono::microseconds duration;
 
 #define TIMER_START() do { start = std::chrono::high_resolution_clock::now(); } while(false)
 #define TIMER_PRINT() do { fmt::print(fg(fmt::color::forest_green), "{0}: {1}: time: {2}μs\n", __PRETTY_FUNCTION__, __LINE__, duration.count()); } while(false)

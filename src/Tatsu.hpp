@@ -8,7 +8,7 @@
 #pragma once
 
 #include <array>
-#include "Manifest.hpp"
+#include <Manifest.hpp>
 
 #define TSS_VERSION "914.40.5"
 #define TSS_VERSION_STRING "libauthinstall-" TSS_VERSION
@@ -80,13 +80,15 @@ private:
     uint64_t mTMPGenerator = -1;
     std::string mAPNonce;
     unsigned char mAPNonceDGST[64];
+    std::vector<char> mAPNonceDGSTVector;
     std::string mSEPNonce;
     unsigned char mSEPNonceDGST[32];
+    std::vector<char> mSEPNonceDGSTVector;
     std::string mBasebandSerialNumber;
     int mBasebandGoldCertID = -1;
     std::vector<std::string> mComponentList{};
 
-    plist_t mParameters = nullptr;
+    std::shared_ptr<PList::Dictionary> mParameters = nullptr;
 //    plist_t mRequest = nullptr;
 
 public:
@@ -95,7 +97,7 @@ public:
     bool initFromIdentity();
     bool initIMG4();
     bool initComponents();
-    bool initRestoreRequestRules(plist_t entry);
+    bool initRestoreRequestRules(PList::Node *entry);
     ~Tatsu();
 };
 

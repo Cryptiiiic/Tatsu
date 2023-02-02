@@ -7,6 +7,7 @@
 
 #pragma once
 #include <plist/plist++.h>
+#include <Modern.hpp>
 
 enum restoreVariants {
     ERASE = 0,
@@ -16,19 +17,22 @@ enum restoreVariants {
 
 class Manifest {
 private:
-    plist_t mBuildIdentitiesArray = nullptr;
-    plist_t mManifestVersion = nullptr;
-    plist_t mProductBuildVersion = nullptr;
-    plist_t mProductVersion = nullptr;
-    plist_t mSupportedProductTypesArray = nullptr;
+    PList::Node *mBuildIdentitiesArray = nullptr;
+    PList::Node *mManifestVersion = nullptr;
+    PList::Node *mProductBuildVersion = nullptr;
+    PList::Node *mProductVersion = nullptr;
+    PList::Node *mSupportedProductTypesArray = nullptr;
+    std::shared_ptr<PList::Structure> mManifestStructure = nullptr;
     plist_t mManifest = nullptr;
+    std::string mManifestPath;
 
-    std::string mEraseString = "Erase";
-    std::string mUpdateString = "Update";
+    const std::string mEraseString = "Erase";
+    const std::string mUpdateString = "Update";
 public:
-    plist_t pIdentity = nullptr;
-    Manifest(plist_t manifest = nullptr);
+    PList::Node *pIdentity = nullptr;
+    explicit Manifest(std::string path = "");
     bool matchIdentity(int chipID, std::string deviceClass, int variant, bool overwrite = false);
+    bool readManifest();
     ~Manifest();
 
 };
