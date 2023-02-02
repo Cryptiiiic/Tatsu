@@ -98,6 +98,7 @@ public:
     bool initIMG4();
     bool initComponents();
     bool initRestoreRequestRules(PList::Node *entry);
+    bool writeBlob(const std::string &blob);
     virtual ~Tatsu();
 };
 

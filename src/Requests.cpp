@@ -12,12 +12,12 @@ Requests::Requests() {
     this->mURL = std::string("http://gs.apple.com/TSS/controller?action=2");
     this->setupTLS();
     this->setupHeaders();
-    fmt::print(fg(fmt::color::forest_green), "{0}: url: {1}\n", __PRETTY_FUNCTION__, this->mURL);
+    fmt::print(fg((fmt::color)0x00c200), "{0}: url: {1}\n", __PRETTY_FUNCTION__, this->mURL);
 }
 
-bool Requests::sendPOST(std::string &body) {
+std::string Requests::sendPOST(std::string &body) {
     if(!this->mHttpClient) {
-        return false;
+        return "";
     }
     this->setupArgs(ix::HttpClient::kPost, body);
     std::atomic<bool> requestCompleted(false);
@@ -43,12 +43,13 @@ bool Requests::sendPOST(std::string &body) {
     }
     if(wait >= 5000) {
         fmt::print(fg(fmt::color::crimson), "{0}: Request timed out!\n", __PRETTY_FUNCTION__);
-        return false;
+        return "";
     }
     TIMER_STOP();
-    bodyResponse.resize(40);
-    fmt::print(fg(fmt::color::forest_green), "{0}: {1}\nDone({2})\n", __PRETTY_FUNCTION__, bodyResponse, statusCode);
-    return true;
+    auto tmp = bodyResponse;
+    tmp.resize(40);
+    fmt::print(fg((fmt::color)0x00c200), "{0}: {1}\nDone({2})\n", __PRETTY_FUNCTION__, tmp, statusCode);
+    return bodyResponse;
 }
 
 void Requests::setupTLS() {

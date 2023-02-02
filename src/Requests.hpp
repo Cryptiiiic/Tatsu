@@ -21,7 +21,7 @@ public:
     void setupTLS();
     void setupHeaders();
     void setupArgs(const std::string &requestType, const std::string &body);
-    bool sendPOST(std::string &body);
+    std::string sendPOST(std::string &body);
     ~Requests();
 };
 

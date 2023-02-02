@@ -4,6 +4,7 @@
 - [x] libplist cpp classes used(libplist++)
 - [x] Smart pointers
 - [x] User specified components saved in blob
+- [x] Save blob to file after success
 - [ ] Correctly parse userspecified apnonce/sepnonce
 - [ ] Improve pointers/memory
 - [ ] Add IXWebSockets as a submodule

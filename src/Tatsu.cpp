@@ -11,6 +11,8 @@
 #include <digestpp/digestpp.hpp>
 #include <chrono>
 #include <unordered_map>
+#include <filesystem>
+#include <fstream>
 #include <Timer.hpp>
 #include <Requests.hpp>
 #include <Lib.hpp>
@@ -74,12 +76,12 @@ Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceC
     this->initParameters();
     uint32_t size = 0;
     char* data = nullptr;
-    debug_plist(this->mParameters->GetPlist());
+//    debug_plist(this->mParameters->GetPlist());
     int ret = plist_to_xml(this->mParameters->GetPlist(), &data, &size);
     std::string body(data);
     auto *rq = new Requests();
     if(ret == PLIST_ERR_SUCCESS) {
-        rq->sendPOST(body);
+        this->writeBlob(rq->sendPOST(body));
     } else {
         fmt::print(fmt::fg(fmt::color::crimson), "{0}: Failed to convert plist to xml error: {1}\n", __PRETTY_FUNCTION__, ret);
     }
@@ -271,6 +273,34 @@ bool Tatsu::initRestoreRequestRules(PList::Node *entry) {
         }
     }
     entryDict->Remove("Info");
+    return true;
+}
+
+bool Tatsu::writeBlob(const std::string &blob) {
+    if(blob.empty()) {
+        return false;
+    }
+    auto blobOut = std::string(blob);
+    if(blob.find("STATUS=0&MESSAGE=SUCCESS") != std::string::npos) {
+        blobOut.erase(0, 40);
+    } else {
+        fmt::print(fg(fmt::color::crimson), "{0}: Failed to save SHSH blobs!", __PRETTY_FUNCTION__);
+        return false;
+    }
+//    auto blobPlist = PList::ModernStructure::FromXml(blobOut);
+//    debug_plist(blobPlist->GetPlist());
+    auto blobPath = fmt::format("{0}/{1}", std::string(std::filesystem::current_path()), std::string("blob.shsh2"));
+    std::ofstream blobFileStream(blobPath, std::ios::out | std::ios::binary | std::ios::beg);
+    if(!blobFileStream.good()) {
+        fmt::print(fg(fmt::color::crimson), "{0}: Failed to open {1} for writing ({2})!\n", __PRETTY_FUNCTION__, blobPath, strerror(errno));
+        return false;
+    }
+    blobFileStream.write(reinterpret_cast<char *>(&blobOut.at(0)), blobOut.size());
+    if(!blobFileStream.good()) {
+        fmt::print(fg(fmt::color::crimson), "{0}: Failed to write {1} ({2})!\n", __PRETTY_FUNCTION__, blobPath, strerror(errno));
+        return false;
+    }
+    fmt::print(fg((fmt::color)0x00c200), "{0}: Successfully saved SHSH blobs!", __PRETTY_FUNCTION__);
     return true;
 }
 
