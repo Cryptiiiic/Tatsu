@@ -15,8 +15,8 @@
 #include <Requests.hpp>
 #include <Lib.hpp>
 
-Tatsu::Tatsu(Manifest *manifest, int chipID, std::string deviceClass, uint64_t ECID, int variant, uint64_t generator, std::string apNonce, std::string sepNonce, std::vector<std::string> componentList)
-: mManifest(manifest), mChipID(chipID), mDeviceClass(std::move(deviceClass)), mECID(ECID), mVariant(variant), mGenerator(generator), mAPNonce(std::move(apNonce)), mSEPNonce(std::move(sepNonce)), mComponentList(std::move(componentList)) {
+Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceClass, uint64_t ECID, int variant, uint64_t generator, std::string apNonce, std::string sepNonce, std::vector<std::string> componentList)
+: mManifest(std::move(manifest)), mChipID(chipID), mDeviceClass(std::move(deviceClass)), mECID(ECID), mVariant(variant), mGenerator(generator), mAPNonce(std::move(apNonce)), mSEPNonce(std::move(sepNonce)), mComponentList(std::move(componentList)) {
     if(!this->mManifest) {
         return;
     }
@@ -74,7 +74,7 @@ Tatsu::Tatsu(Manifest *manifest, int chipID, std::string deviceClass, uint64_t E
     this->initParameters();
     uint32_t size = 0;
     char* data = nullptr;
-//    debug_plist(this->mParameters->GetPlist());
+    debug_plist(this->mParameters->GetPlist());
     int ret = plist_to_xml(this->mParameters->GetPlist(), &data, &size);
     std::string body(data);
     auto *rq = new Requests();
@@ -186,10 +186,11 @@ bool Tatsu::initComponents() {
         addComponent = this->mComponentList.empty();
         if(!addComponent) {
             for(auto idx : this->mComponentList) {
-                std::cout << idx << std::endl;
-                if(std::equal(find.first.begin(), find.first.end(), idx.begin())) {
+                if(std::equal(it.first.begin(), it.first.end(), idx.begin())) {
                     addComponent = true;
                     break;
+                } else {
+                    addComponent = false;
                 }
             }
         }

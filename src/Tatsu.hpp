@@ -71,7 +71,7 @@ static std::array<std::string, ENTRIES_COUNT> entries = {
 
 class Tatsu {
 private:
-    Manifest *mManifest = nullptr;
+    std::shared_ptr<Manifest> mManifest = nullptr;
     int mChipID = -1;
     std::string mDeviceClass;
     uint64_t mECID = -1;
@@ -79,10 +79,10 @@ private:
     uint64_t mGenerator = -1;
     uint64_t mTMPGenerator = -1;
     std::string mAPNonce;
-    unsigned char mAPNonceDGST[64];
+    unsigned char mAPNonceDGST[64]{};
     std::vector<char> mAPNonceDGSTVector;
     std::string mSEPNonce;
-    unsigned char mSEPNonceDGST[32];
+    unsigned char mSEPNonceDGST[32]{};
     std::vector<char> mSEPNonceDGSTVector;
     std::string mBasebandSerialNumber;
     int mBasebandGoldCertID = -1;
@@ -92,7 +92,7 @@ private:
 //    plist_t mRequest = nullptr;
 
 public:
-    explicit Tatsu(Manifest *manifest = nullptr, int chipID = -1, std::string deviceClass = "", uint64_t ECID = -1, int variant = -1, uint64_t generator = -1, std::string apNonce = "", std::string sepNonce = "", std::vector<std::string> componentList = {});
+    explicit Tatsu(std::shared_ptr<Manifest> manifest = nullptr, int chipID = -1, std::string deviceClass = "", uint64_t ECID = -1, int variant = -1, uint64_t generator = -1, std::string apNonce = "", std::string sepNonce = "", std::vector<std::string> componentList = {});
     bool initParameters();
     bool initFromIdentity();
     bool initIMG4();
