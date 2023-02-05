@@ -21,9 +21,7 @@ namespace PList {
 
     ModernStructure *ModernStructure::FromXml(const std::string &xml) {
         plist_t root = nullptr;
-        TIMER();
         plist_from_xml(xml.c_str(), xml.size(), &root);
-        TIMER1();
         return ImportStruct(root);
     }
 

@@ -263,11 +263,11 @@ bool Tatsu::initRestoreRequestRules(PList::Node *entry) {
             {"ApDemotionPolicyOverride", "DemotionPolicy"},
             {"ApInRomDFU", "ApInRomDFU"},
         };
-        auto conditionsKey = reinterpret_cast<PList::Dictionary *>(conditions.second)->begin()->first;
-        auto conditionsValue = reinterpret_cast<PList::Dictionary *>(conditions.second)->begin()->second;
-        auto actionsKey = reinterpret_cast<PList::Dictionary *>(actions.second)->begin()->first;
-        auto actionsValue = reinterpret_cast<PList::Dictionary *>(actions.second)->begin()->second;
-        bool paramValue = reinterpret_cast<PList::Boolean *>(this->mParameters->Find(keyMap.at(conditionsKey))->second)->GetValue();
+        auto conditionsKey = ((PList::Dictionary *)conditions.second)->begin()->first;
+        auto conditionsValue = ((PList::Dictionary *)conditions.second)->begin()->second;
+        auto actionsKey = ((PList::Dictionary *)actions.second)->begin()->first;
+        auto actionsValue = ((PList::Dictionary *)actions.second)->begin()->second;
+        bool paramValue = ((PList::Boolean *)this->mParameters->Find(keyMap.at(conditionsKey))->second)->GetValue();
         if(paramValue && conditionsValue) {
             entryDict->Set(actionsKey, std::make_unique<PList::Boolean>(paramValue).get());
         }
@@ -295,7 +295,7 @@ bool Tatsu::writeBlob(const std::string &blob) {
         fmt::print(fg(fmt::color::crimson), "{0}: Failed to open {1} for writing ({2})!\n", __PRETTY_FUNCTION__, blobPath, strerror(errno));
         return false;
     }
-    blobFileStream.write(reinterpret_cast<char *>(&blobOut.at(0)), blobOut.size());
+    blobFileStream.write(&blobOut.at(0), (std::streamsize)blobOut.size());
     if(!blobFileStream.good()) {
         fmt::print(fg(fmt::color::crimson), "{0}: Failed to write {1} ({2})!\n", __PRETTY_FUNCTION__, blobPath, strerror(errno));
         return false;
