@@ -10,19 +10,20 @@
 
 namespace PList {
 
-    class ModernStructure : public Structure {
-    public:
-        static std::shared_ptr<Structure> FromXml(const std::string &xml);
-        static std::shared_ptr<Structure> FromBin(const std::string &bin);
-        static std::shared_ptr<Structure> FromBin(const std::vector<char> &bin);
-    private:
-//        ModernStructure& operator=(const ModernStructure& s);
-    };
-
     class ModernNode : public Node {
     private:
     public:
-        static std::shared_ptr<ModernNode>FromPlist(plist_t node, ModernNode *parent = nullptr);
+        static ModernNode *FromPlist(plist_t node, ModernNode *parent = nullptr);
+        friend class ModernStructure;
+    };
+
+    class ModernStructure : public ModernNode {
+    public:
+        static ModernStructure *FromXml(const std::string &xml);
+        static ModernStructure *FromBin(const std::string &bin);
+        static ModernStructure *FromBin(const std::vector<char> &bin);
+    private:
+//        ModernStructure& operator=(const ModernStructure& s);
     };
 
 //     class ModernDictionary : Dictionary {

@@ -12,6 +12,9 @@
 #include <utility>
 #include <iostream>
 
+bool Manifest::isValid() {
+    return this->mManifestStructure && this->mManifestStructure->size() && this->mBuildIdentitiesArray && this->mBuildIdentitiesArray->size();
+}
 
 Manifest::Manifest(std::string path) : mManifestPath(std::move(path)) {
     if(!this->readManifest()) {
@@ -19,15 +22,36 @@ Manifest::Manifest(std::string path) : mManifestPath(std::move(path)) {
         return;
     }
 //    this->mManifest = this->mManifestStructure->GetPlist();
-    if(!reinterpret_cast<PList::Dictionary *>(this->mManifestStructure.get())->size()) {
+    if(!this->mManifestStructure->size()) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is empty!\n", __PRETTY_FUNCTION__);
         return;
     }
-    this->mBuildIdentitiesArray = reinterpret_cast<PList::Array *>(reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("BuildIdentities")->second);
-    this->mManifestVersion = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("ManifestVersion")->second;
-    this->mProductBuildVersion = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("ProductBuildVersion")->second;
-    this->mProductVersion = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("ProductVersion")->second;
-    this->mSupportedProductTypesArray = reinterpret_cast<PList::Dictionary*>(this->mManifestStructure.get())->Find("SupportedProductTypes")->second;
+    PList::Dictionary *structure = this->mManifestStructure;
+    PList::Node *prop = nullptr;
+    std::string find;
+    std::string print;
+
+
+    auto findProp = [&structure, &prop, &find, &print](PList::Dictionary *, PList::Node *, const std::string&, const std::string&){
+        auto tmp = structure->Find(find);
+        if(tmp->second) {
+            prop = (PList::Node *)tmp->second;
+            return;
+        } else {
+            fmt::print(fg(fmt::color::crimson), "{0}: could not find {1} {2}!\n", __PRETTY_FUNCTION__, find, print);
+            return;
+        }
+    };
+    findProp(structure=this->mManifestStructure, prop, find="BuildIdentities", print="array");
+    this->mBuildIdentitiesArray = (PList::Array *)prop;
+    findProp(structure=this->mManifestStructure, prop, find="ManifestVersion", print="int");
+    this->mManifestVersion = (PList::Integer *)prop;
+    findProp(structure=this->mManifestStructure, prop, find="ProductBuildVersion", print="string");
+    this->mProductBuildVersion = (PList::String *)prop;
+    findProp(structure=this->mManifestStructure, prop, find="ProductVersion", print="string");
+    this->mProductVersion = (PList::String *)prop;
+    findProp(structure=this->mManifestStructure, prop, find="SupportedProductTypes", print="array");
+    this->mSupportedProductTypesArray = (PList::Array *)prop;
     if(!this->mBuildIdentitiesArray || !this->mBuildIdentitiesArray->GetSize() || !this->mBuildIdentitiesArray->size() || this->mBuildIdentitiesArray->GetType() != PLIST_ARRAY) {
         fmt::print(fg(fmt::color::crimson), "{0}: manifest plist is missing BuildIdentities array!\n", __PRETTY_FUNCTION__);
         return;
@@ -58,15 +82,15 @@ bool Manifest::matchIdentity(int chipID, std::string deviceClass, int variant, b
         fmt::print(fg(fmt::color::crimson), "{0}: build identities array is empty!\n", __PRETTY_FUNCTION__);
         return false;
     }
-    for(auto & it : *reinterpret_cast<PList::Array *>(this->mBuildIdentitiesArray))
+    for(auto & it : *this->mBuildIdentitiesArray)
     {
         if(!it) {
             continue;
         }
-        auto dict = reinterpret_cast<PList::Dictionary *>(it);
+        auto dict = (PList::Dictionary *)(it);
         auto chipidPair = *dict->Find("ApChipID");
         if(!chipidPair.first.empty()) {
-            auto chipIDString = reinterpret_cast<PList::String *>(chipidPair.second)->GetValue();
+            auto chipIDString = ((PList::String *)chipidPair.second)->GetValue();
             auto chipid = std::stoul(chipIDString, nullptr, 16);
             if(chipid != chipID) {
                 continue;
@@ -74,10 +98,10 @@ bool Manifest::matchIdentity(int chipID, std::string deviceClass, int variant, b
         }
         auto infoPair = *dict->Find("Info");
         if(!infoPair.first.empty()) {
-            auto infoDict = reinterpret_cast<PList::Dictionary *>(infoPair.second);
+            auto infoDict = (PList::Dictionary *)(infoPair.second);
             auto restoreBehaviorPair = *infoDict->Find("RestoreBehavior");
             if(!restoreBehaviorPair.first.empty()) {
-                auto restoreBehaviorString = reinterpret_cast<PList::String *>(restoreBehaviorPair.second)->GetValue();
+                auto restoreBehaviorString = ((PList::String *)restoreBehaviorPair.second)->GetValue();
                 switch(variant) {
                     case ERASE:
                         if (!std::equal(this->mEraseString.begin(), this->mEraseString.end(), restoreBehaviorString.begin())) {
@@ -95,11 +119,11 @@ bool Manifest::matchIdentity(int chipID, std::string deviceClass, int variant, b
             }
             auto deviceClassPair = *infoDict->Find("DeviceClass");
             if(!deviceClassPair.first.empty()) {
-                auto deviceClassString = reinterpret_cast<PList::String *>(deviceClassPair.second)->GetValue();
+                auto deviceClassString = ((PList::String *)deviceClassPair.second)->GetValue();
                 if (!std::equal(deviceClass.begin(), deviceClass.end(), deviceClassString.begin())) {
                     continue;
                 }
-                this->pIdentity = it;
+                this->pIdentity = dict;
                 return true;
             }
         }
@@ -124,15 +148,15 @@ bool Manifest::readManifest() {
     manifestFileStream.seekg(0, std::ios_base::beg);
     auto manifestBuffer = new std::string;
     manifestBuffer->assign(manifestFileSize, '\0');
-    manifestFileStream.read(reinterpret_cast<char *>(&manifestBuffer->at(0)), manifestFileSize);
+    manifestFileStream.read(&manifestBuffer->at(0), manifestFileSize);
     if(!manifestFileStream.good()) {
         fmt::print(fg(fmt::color::crimson), "{0}: Failed to read {1} ({2})!\n", __PRETTY_FUNCTION__, this->mManifestPath, strerror(errno));
         return false;
     }
     if(plist_is_binary(manifestBuffer->c_str(), static_cast<uint32_t>(manifestFileSize))) {
-        this->mManifestStructure = PList::ModernStructure::FromBin(*manifestBuffer);
+        this->mManifestStructure = (PList::Dictionary *)(PList::ModernStructure::FromBin(*manifestBuffer));
     } else {
-        this->mManifestStructure = PList::ModernStructure::FromXml(*manifestBuffer);
+        this->mManifestStructure = (PList::Dictionary *)(PList::ModernStructure::FromXml(*manifestBuffer));
     }
     return true;
 }

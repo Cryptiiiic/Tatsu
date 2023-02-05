@@ -14,7 +14,7 @@ else()
     warning("[WARNING]: Detected unknown system!")
 endif()
 
-SET(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+#SET(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 #get_cmake_property(_variableNames VARIABLES)
 #list (SORT _variableNames)
 #foreach (_variableName ${_variableNames})
@@ -55,8 +55,6 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG_INIT}")
 
 add_executable(Tatsu src/main.cpp src/Manifest.cpp src/Tatsu.cpp src/Requests.cpp src/Modern.cpp)
-
-#add_definitions("-DFMT_HEADER_ONLY")
 
 target_include_directories(Tatsu PRIVATE
         "${CMAKE_SOURCE_DIR}/dep_root/include"

@@ -19,7 +19,7 @@
 
 Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceClass, uint64_t ECID, int variant, uint64_t generator, std::string apNonce, std::string sepNonce, std::vector<std::string> componentList)
 : mManifest(std::move(manifest)), mChipID(chipID), mDeviceClass(std::move(deviceClass)), mECID(ECID), mVariant(variant), mGenerator(generator), mAPNonce(std::move(apNonce)), mSEPNonce(std::move(sepNonce)), mComponentList(std::move(componentList)) {
-    if(!this->mManifest) {
+    if(!this->mManifest || !this->mManifest.get()) {
         return;
     }
     if(this->mChipID <= 0) {
@@ -300,7 +300,7 @@ bool Tatsu::writeBlob(const std::string &blob) {
         fmt::print(fg(fmt::color::crimson), "{0}: Failed to write {1} ({2})!\n", __PRETTY_FUNCTION__, blobPath, strerror(errno));
         return false;
     }
-    fmt::print(fg((fmt::color)0x00c200), "{0}: Successfully saved SHSH blobs!", __PRETTY_FUNCTION__);
+    fmt::print(fg((fmt::color)0x00c200), "{0}: Successfully saved SHSH blobs!\n", __PRETTY_FUNCTION__);
     return true;
 }
 

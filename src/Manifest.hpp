@@ -17,25 +17,27 @@ enum restoreVariants {
 
 class Manifest {
 private:
+    PList::Dictionary *mManifestStructure = nullptr;
     PList::Array *mBuildIdentitiesArray = nullptr;
-    PList::Node *mManifestVersion = nullptr;
-    PList::Node *mProductBuildVersion = nullptr;
-    PList::Node *mProductVersion = nullptr;
-    PList::Node *mSupportedProductTypesArray = nullptr;
-    std::shared_ptr<PList::Structure> mManifestStructure = nullptr;
-    plist_t mManifest = nullptr;
+    PList::Integer *mManifestVersion = nullptr;
+    PList::String *mProductBuildVersion = nullptr;
+    PList::String *mProductVersion = nullptr;
+    PList::Array *mSupportedProductTypesArray = nullptr;
+//    plist_t mManifest = nullptr;
     std::string mManifestPath;
 
     const std::string mEraseString = "Erase";
     const std::string mUpdateString = "Update";
 public:
-    PList::Node *pIdentity = nullptr;
+    PList::Dictionary *pIdentity = nullptr;
     explicit Manifest(std::string path = "");
     bool matchIdentity(int chipID, std::string deviceClass, int variant, bool overwrite = false);
     bool readManifest();
+    bool isValid();
     ~Manifest();
 
 };
+
 
 
 #endif //TATSU_MANIFEST_HPP

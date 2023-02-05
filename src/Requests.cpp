@@ -29,7 +29,7 @@ std::string Requests::sendPOST(std::string &body) {
 //        fmt::print(fg(fmt::color::forest_green), "{0}: statusCode: {1}\n", __PRETTY_FUNCTION__, statusCode);
         requestCompleted = true;
     };
-    TIMER_START();
+    TIMER();
     this->mHttpClient->performRequest(this->mArgs, responseFunc);
 
     int wait = 0;
@@ -45,7 +45,7 @@ std::string Requests::sendPOST(std::string &body) {
         fmt::print(fg(fmt::color::crimson), "{0}: Request timed out!\n", __PRETTY_FUNCTION__);
         return "";
     }
-    TIMER_STOP();
+    TIMER1();
     auto tmp = bodyResponse;
     tmp.resize(40);
     fmt::print(fg((fmt::color)0x00c200), "{0}: {1}\nDone({2})\n", __PRETTY_FUNCTION__, tmp, statusCode);
