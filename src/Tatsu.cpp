@@ -73,10 +73,12 @@ Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceC
         digestpp::sha1().absorb(reinterpret_cast<const char *>(&this->mTMPGenerator), 8).digest<unsigned char>(this->mSEPNonceDGST, 32);
         this->mSEPNonceDGSTVector.insert(this->mSEPNonceDGSTVector.end(), this->mSEPNonceDGST, this->mSEPNonceDGST + 20);
     }
-    this->initParameters();
+    if(!this->initParameters()) {
+        return;
+    }
     uint32_t size = 0;
     char* data = nullptr;
-//    debug_plist(this->mParameters->GetPlist());
+    debug_plist(this->mParameters->GetPlist());
     int ret = plist_to_xml(this->mParameters->GetPlist(), &data, &size);
     std::string body(data);
     auto *rq = new Requests();
@@ -94,14 +96,21 @@ bool Tatsu::initParameters() {
     this->mParameters->Set("@HostPlatformInfo", std::make_unique<PList::String>(std::string("mac")).get());
     this->mParameters->Set("@VersionInfo", std::make_unique<PList::String>(std::string(TSS_VERSION_STRING)).get());
     this->mParameters->Set("@UUID", std::make_unique<PList::String>(std::string(generateUUID())).get());
-    this->initFromIdentity();
-    this->initIMG4();
-    this->initComponents();
+    if(!this->initFromIdentity()) {
+        return false;
+    }
+    if(!this->initIMG4()) {
+        return false;
+    }
+    if(!this->initComponents()) {
+        return false;
+    }
     return true;
 }
 
 bool Tatsu::initFromIdentity() {
     if(!this->mManifest->matchIdentity(this->mChipID, this->mDeviceClass, this->mVariant)) {
+        fmt::print(fg(fmt::color::crimson), "{0}: Failed to find matching identity (0x{1:X}, {2}, {3})!", __PRETTY_FUNCTION__, this->mChipID, this->mDeviceClass, (this->mVariant == ERASE ? this->mManifest->eraseString : this->mManifest->updateString));
         return false;
     }
     for(const std::string& entry: entries) {
@@ -109,13 +118,13 @@ bool Tatsu::initFromIdentity() {
         if(!ident) {
             continue;
         }
-        auto identIter = ident->Find(entry);
-        auto find = *identIter;
-        if(!validateString(find.first)) {
+        auto find = ident->Find(entry);
+        auto end = ident->End();
+        if(find == end) {
             continue;
         }
-        if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
-            this->mParameters->Set(entry, find.second);
+        if(!find->first.empty() && find->second->GetType() != PLIST_NULL && find->second->GetType() != PLIST_NONE) {
+            this->mParameters->Set(entry, find->second);
         }
     }
     return true;
@@ -126,6 +135,9 @@ bool Tatsu::initIMG4() {
         this->mParameters->Set("@BBTicket", std::make_unique<PList::Boolean>(true).get());
         this->mParameters->Set("BbSNUM", std::make_unique<PList::String>(std::string(this->mBasebandSerialNumber)).get());
         this->mParameters->Set("@BBTicket", std::make_unique<PList::Integer>(static_cast<int64_t>(this->mBasebandGoldCertID)).get());
+    }
+    if(this->mManifest->requiresUIDMode) {
+        this->mParameters->Set("UID_MODE", std::make_unique<PList::Boolean>(false).get());
     }
     this->mParameters->Set("@ApImg4Ticket", std::make_unique<PList::Boolean>(true).get());
     this->mParameters->Set("ApSecurityMode", std::make_unique<PList::Boolean>(true).get());
@@ -142,6 +154,10 @@ bool Tatsu::initComponents() {
         return false;
     }
     auto manifestDict = identDict->Find("Manifest");
+    auto manifestDictEnd = identDict->End();
+    if(manifestDict == manifestDictEnd) {
+        return false;
+    }
     PList::Node *manifestOrig = manifestDict->second;
     if(!manifestOrig) {
         return false;
@@ -151,12 +167,13 @@ bool Tatsu::initComponents() {
     manifest = reinterpret_cast<PList::Dictionary *>(manifestOrig);
     std::array<std::string, 4> keys = { "BasebandFirmware", "SE,UpdatePayload", "BaseSystem", "Diags" };
     for(auto &k : keys) {
-        auto find = *manifest->Find(k);
-        if(!validateString(find.first)) {
+        auto find = manifest->Find(k);
+        auto end = manifest->End();
+        if(find == end) {
             continue;
         }
-        if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
-            manifest->Remove(manifest->Find(k)->second);
+        if(!find->first.empty() && find->second->GetType() != PLIST_NULL && find->second->GetType() != PLIST_NONE) {
+            manifest->Remove(find->second);
         }
     }
     uint32_t count = manifest->size();
@@ -170,17 +187,25 @@ bool Tatsu::initComponents() {
         } else {
             continue;
         }
-        auto find = *dict->Find("Info");
-        if(!find.first.empty() && find.second->GetType() != PLIST_NULL && find.second->GetType() != PLIST_NONE) {
-            auto find2 = *reinterpret_cast<PList::Dictionary *>(find.second)->Find("RestoreRequestRules");
-            if(!find2.first.empty() && find2.second->GetType() != PLIST_NULL && find2.second->GetType() != PLIST_NONE) {
+        auto find = dict->Find("Info");
+        auto end = dict->End();
+        if(find == end) {
+            continue;
+        }
+        if(!find->first.empty() && find->second->GetType() != PLIST_NULL && find->second->GetType() != PLIST_NONE) {
+            auto find2 = reinterpret_cast<PList::Dictionary *>(find->second)->Find("RestoreRequestRules");
+            auto end2 = reinterpret_cast<PList::Dictionary *>(find->second)->End();
+            if(find2 == end2) {
+                continue;
+            }
+            if(!find2->first.empty() && find2->second->GetType() != PLIST_NULL && find2->second->GetType() != PLIST_NONE) {
                 // no code needed
             } else {
-                dict->Remove(find2.second);
+                dict->Remove(find2->second);
                 continue;
             }
         } else {
-            dict->Remove(find.second);
+            dict->Remove(find->second);
             continue;
         }
 
@@ -197,15 +222,19 @@ bool Tatsu::initComponents() {
             }
         }
         if(addComponent) {
-            auto find3 = *dict->Find("Trusted");
-            if(!find3.first.empty() && find3.second->GetType() != PLIST_NULL && find3.second->GetType() != PLIST_NONE) {
-                auto find4 = *dict->Find("Digest");
-                if(!validateString(find4.first)) {
+            auto find3 = dict->Find("Trusted");
+            auto end3 = dict->End();
+            if(find3 == end3) {
+                continue;
+            }
+            if(!find3->first.empty() && find3->second->GetType() != PLIST_NULL && find3->second->GetType() != PLIST_NONE) {
+                auto find4 = dict->Find("Digest");
+                if(find4 == end3) {
                     continue;
                 }
-                if(!find4.first.empty() && find4.second->GetType() != PLIST_NULL && find4.second->GetType() != PLIST_NONE) {
-                    auto vec = reinterpret_cast<PList::Data *>(find4.second)->GetValue();
-                    if(reinterpret_cast<PList::Data *>(find4.second)->GetValue().empty()) {
+                if(!find4->first.empty() && find4->second->GetType() != PLIST_NULL && find4->second->GetType() != PLIST_NONE) {
+                    auto vec = reinterpret_cast<PList::Data *>(find4->second)->GetValue();
+                    if(reinterpret_cast<PList::Data *>(find4->second)->GetValue().empty()) {
                         dict->Set("Digest", std::make_unique<PList::Data>().get());
                     }
                 } else {

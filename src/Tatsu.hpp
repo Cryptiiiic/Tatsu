@@ -13,7 +13,7 @@
 #define TSS_VERSION "914.40.5"
 #define TSS_VERSION_STRING "libauthinstall-" TSS_VERSION
 
-#define ENTRIES_COUNT 53
+#define ENTRIES_COUNT 54
 static std::array<std::string, ENTRIES_COUNT> entries = {
         "UniqueBuildID",
         "ApChipID",
@@ -67,6 +67,7 @@ static std::array<std::string, ENTRIES_COUNT> entries = {
         "Cryptex1,MobileAssetBrainVolume",
         "Cryptex1,MobileAssetBrainTrustCache",
         "Ap,OSLongVersion",
+        "NeRDEpoch",
 };
 
 class Tatsu {

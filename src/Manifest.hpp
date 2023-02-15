@@ -26,10 +26,11 @@ private:
 //    plist_t mManifest = nullptr;
     std::string mManifestPath;
 
-    const std::string mEraseString = "Erase";
-    const std::string mUpdateString = "Update";
 public:
+    const std::string eraseString = "Erase";
+    const std::string updateString = "Update";
     PList::Dictionary *pIdentity = nullptr;
+    bool requiresUIDMode = false;
     explicit Manifest(std::string path = "");
     bool matchIdentity(int chipID, std::string deviceClass, int variant, bool overwrite = false);
     bool readManifest();

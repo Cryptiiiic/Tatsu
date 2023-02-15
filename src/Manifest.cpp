@@ -99,17 +99,18 @@ bool Manifest::matchIdentity(int chipID, std::string deviceClass, int variant, b
         auto infoPair = *dict->Find("Info");
         if(!infoPair.first.empty()) {
             auto infoDict = (PList::Dictionary *)(infoPair.second);
+            auto infoDictEnd = infoDict->End();
             auto restoreBehaviorPair = *infoDict->Find("RestoreBehavior");
             if(!restoreBehaviorPair.first.empty()) {
                 auto restoreBehaviorString = ((PList::String *)restoreBehaviorPair.second)->GetValue();
                 switch(variant) {
                     case ERASE:
-                        if (!std::equal(this->mEraseString.begin(), this->mEraseString.end(), restoreBehaviorString.begin())) {
+                        if (!std::equal(this->eraseString.begin(), this->eraseString.end(), restoreBehaviorString.begin())) {
                             continue;
                         }
                         break;
                     case UPDATE:
-                        if (!std::equal(this->mUpdateString.begin(), this->mUpdateString.end(), restoreBehaviorString.begin())) {
+                        if (!std::equal(this->updateString.begin(), this->updateString.end(), restoreBehaviorString.begin())) {
                             continue;
                         }
                         break;
@@ -118,6 +119,15 @@ bool Manifest::matchIdentity(int chipID, std::string deviceClass, int variant, b
                 }
             }
             auto deviceClassPair = *infoDict->Find("DeviceClass");
+            auto uidMode = infoDict->Find("RequiresUIDMode");
+            if(uidMode != infoDictEnd) {
+                if(!uidMode->first.empty()) {
+                    auto uidBool = (PList::Boolean *)uidMode->second;
+                    if(uidBool->GetValue()) {
+                        this->requiresUIDMode = true;
+                    }
+                }
+            }
             if(!deviceClassPair.first.empty()) {
                 auto deviceClassString = ((PList::String *)deviceClassPair.second)->GetValue();
                 if (!std::equal(deviceClass.begin(), deviceClass.end(), deviceClassString.begin())) {

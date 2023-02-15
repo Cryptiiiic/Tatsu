@@ -48,14 +48,4 @@ static void debug_plist(plist_t plistIn) {
     }
 }
 
-static bool validateString(const std::string& s)
-{
-    for(const char c : s) {
-        if (!isalpha(c) && !isspace(c))
-            return false;
-    }
-
-    return true;
-}
-
 #endif //TATSU_LIB_HPP
