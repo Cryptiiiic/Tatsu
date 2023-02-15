@@ -55,7 +55,7 @@ Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceC
             apnonce.resize(64);
             digestpp::sha384().reset();
             digestpp::sha384().absorb(reinterpret_cast<const char *>(&this->mGenerator), 8).digest<unsigned char>(this->mAPNonceDGST, 64);
-            this->mAPNonceDGSTVector.insert(this->mAPNonceDGSTVector.end(), this->mAPNonceDGST, this->mAPNonceDGST + 40);
+            this->mAPNonceDGSTVector.insert(this->mAPNonceDGSTVector.end(), this->mAPNonceDGST, this->mAPNonceDGST + 32);
             this->mAPNonce = apnonce;
         }
         if (apnonce.empty()) {
@@ -78,7 +78,7 @@ Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceC
     }
     uint32_t size = 0;
     char* data = nullptr;
-    debug_plist(this->mParameters->GetPlist());
+//    debug_plist(this->mParameters->GetPlist());
     int ret = plist_to_xml(this->mParameters->GetPlist(), &data, &size);
     std::string body(data);
     auto *rq = new Requests();
@@ -143,7 +143,7 @@ bool Tatsu::initIMG4() {
     this->mParameters->Set("ApSecurityMode", std::make_unique<PList::Boolean>(true).get());
     this->mParameters->Set("ApProductionMode", std::make_unique<PList::Boolean>(true).get());
     this->mParameters->Set("ApNonce", std::make_unique<PList::Data>(this->mAPNonceDGSTVector).get());
-    this->mParameters->Set("SepNonce", std::make_unique<PList::Data>(this->mAPNonceDGSTVector).get());
+    this->mParameters->Set("SepNonce", std::make_unique<PList::Data>(this->mSEPNonceDGSTVector).get());
     this->mParameters->Set("ApECID", std::make_unique<PList::Integer>(this->mECID).get());
     return true;
 }

@@ -12,7 +12,9 @@ int main() {
         return -1;
     }
     manifestList.emplace_back(tmp);
-    auto tmp2 = std::make_shared<Tatsu>(tmp, 0x8120, "d74ap", 0x69, ERASE, 0x1111111111111111, "", "", std::vector<std::string>{ "NeRDEpoch", "iBEC" });
+//    std::vector<std::string> list {
+//    };
+    auto tmp2 = std::make_shared<Tatsu>(tmp, 0x8120, "d74ap", 0x69, ERASE, 0x1111111111111111, "", "", std::vector<std::string>{});
     tatsuList.emplace_back(tmp2);
     return 0;
 }
