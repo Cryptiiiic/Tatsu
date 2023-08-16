@@ -88,12 +88,13 @@ private:
     std::string mBasebandSerialNumber;
     int mBasebandGoldCertID = -1;
     std::vector<std::string> mComponentList{};
+    std::pair<std::vector<std::string>, std::vector<std::string>> mCustomComponentList{};
 
     std::shared_ptr<PList::Dictionary> mParameters = nullptr;
 //    plist_t mRequest = nullptr;
 
 public:
-    explicit Tatsu(std::shared_ptr<Manifest> manifest = nullptr, int chipID = -1, std::string deviceClass = "", uint64_t ECID = -1, int variant = -1, uint64_t generator = -1, std::string apNonce = "", std::string sepNonce = "", std::vector<std::string> componentList = {});
+    explicit Tatsu(std::shared_ptr<Manifest> manifest = nullptr, int chipID = -1, std::string deviceClass = "", uint64_t ECID = -1, int variant = -1, uint64_t generator = -1, std::string apNonce = "", std::string sepNonce = "", std::vector<std::string> componentList = {}, std::pair<std::vector<std::string>, std::vector<std::string>> customComponentList = {});
     bool initParameters();
     bool initFromIdentity();
     bool initIMG4();

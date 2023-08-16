@@ -13,7 +13,12 @@
 #include <iostream>
 
 bool Manifest::isValid() {
-    return this->mManifestStructure && this->mManifestStructure->size() && this->mBuildIdentitiesArray && this->mBuildIdentitiesArray->size();
+    auto a1 = this->mManifestStructure;
+    auto a2 = this->mManifestStructure->size();
+    auto a3 = this->mBuildIdentitiesArray;
+    auto a4 = this->mBuildIdentitiesArray->size();
+    return a1 && a2 && a3 && a4;
+//    return this->mManifestStructure && this->mManifestStructure->size() && this->mBuildIdentitiesArray && this->mBuildIdentitiesArray->size();
 }
 
 Manifest::Manifest(std::string path) : mManifestPath(std::move(path)) {
@@ -160,6 +165,7 @@ bool Manifest::readManifest() {
     manifestBuffer->assign(manifestFileSize, '\0');
     manifestFileStream.read(&manifestBuffer->at(0), manifestFileSize);
     if(!manifestFileStream.good()) {
+        manifestFileStream.close();
         fmt::print(fg(fmt::color::crimson), "{0}: Failed to read {1} ({2})!\n", __PRETTY_FUNCTION__, this->mManifestPath, strerror(errno));
         return false;
     }
@@ -168,6 +174,7 @@ bool Manifest::readManifest() {
     } else {
         this->mManifestStructure = (PList::Dictionary *)(PList::ModernStructure::FromXml(*manifestBuffer));
     }
+    manifestFileStream.close();
     return true;
 }
 

@@ -17,8 +17,8 @@
 #include <Requests.hpp>
 #include <Lib.hpp>
 
-Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceClass, uint64_t ECID, int variant, uint64_t generator, std::string apNonce, std::string sepNonce, std::vector<std::string> componentList)
-: mManifest(std::move(manifest)), mChipID(chipID), mDeviceClass(std::move(deviceClass)), mECID(ECID), mVariant(variant), mGenerator(generator), mAPNonce(std::move(apNonce)), mSEPNonce(std::move(sepNonce)), mComponentList(std::move(componentList)) {
+Tatsu::Tatsu(std::shared_ptr<Manifest> manifest, int chipID, std::string deviceClass, uint64_t ECID, int variant, uint64_t generator, std::string apNonce, std::string sepNonce, std::vector<std::string> componentList, std::pair<std::vector<std::string>, std::vector<std::string>> customComponentList)
+: mManifest(std::move(manifest)), mChipID(chipID), mDeviceClass(std::move(deviceClass)), mECID(ECID), mVariant(variant), mGenerator(generator), mAPNonce(std::move(apNonce)), mSEPNonce(std::move(sepNonce)), mComponentList(std::move(componentList)), mCustomComponentList(std::move(customComponentList)) {
     if(!this->mManifest || !this->mManifest.get()) {
         return;
     }
@@ -109,7 +109,7 @@ bool Tatsu::initParameters() {
 }
 
 bool Tatsu::initFromIdentity() {
-    if(!this->mManifest->matchIdentity(this->mChipID, this->mDeviceClass, this->mVariant)) {
+    if(!this->mManifest->matchIdentity(this->mChipID, this->mDeviceClass, this->mVariant, true)) {
         fmt::print(fg(fmt::color::crimson), "{0}: Failed to find matching identity (0x{1:X}, {2}, {3})!", __PRETTY_FUNCTION__, this->mChipID, this->mDeviceClass, (this->mVariant == ERASE ? this->mManifest->eraseString : this->mManifest->updateString));
         return false;
     }
@@ -156,6 +156,7 @@ bool Tatsu::initComponents() {
     auto manifestDict = identDict->Find("Manifest");
     auto manifestDictEnd = identDict->End();
     if(manifestDict == manifestDictEnd) {
+        fmt::print(fg((fmt::color)0x00c200), "{0}: Failed line: {1}\n", __PRETTY_FUNCTION__, __LINE__);
         return false;
     }
     PList::Node *manifestOrig = manifestDict->second;
@@ -221,6 +222,17 @@ bool Tatsu::initComponents() {
                 }
             }
         }
+        addComponent = this->mCustomComponentList.first.empty();
+        if(!addComponent) {
+            for(auto idx : this->mCustomComponentList.first) {
+                if(std::equal(it.first.begin(), it.first.end(), idx.begin())) {
+                    addComponent = true;
+                    break;
+                } else {
+                    addComponent = false;
+                }
+            }
+        }
         if(addComponent) {
             auto find3 = dict->Find("Trusted");
             auto end3 = dict->End();
@@ -239,6 +251,24 @@ bool Tatsu::initComponents() {
                     }
                 } else {
                     dict->Set("Digest", std::make_unique<PList::Data>().get());
+                }
+            }
+            if(!this->mCustomComponentList.first.empty() && !this->mCustomComponentList.second.empty()) {
+                int digestIndex = 0;
+                std::vector<uint8_t> tmpDigest{};
+                for(auto idx : this->mCustomComponentList.first) {
+                    if(std::equal(it.first.begin(), it.first.end(), idx.begin())) {
+                        std::string digest = this->mCustomComponentList.second[digestIndex];
+                        tmpDigest.clear();
+                        for(size_t i = 0; i < digest.length(); i += 2) {
+                            std::string byteString = digest.substr(i, 2);
+                            uint8_t byteValue = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+                            tmpDigest.emplace_back(byteValue);
+                        }
+                        const auto& constBuffRef = reinterpret_cast<const std::vector<char>&>(tmpDigest);
+                        dict->Set("Digest", std::make_unique<PList::Data>(constBuffRef).get());
+                    }
+                    digestIndex++;
                 }
             }
             this->initRestoreRequestRules(it.second);
@@ -296,7 +326,14 @@ bool Tatsu::initRestoreRequestRules(PList::Node *entry) {
         auto conditionsValue = ((PList::Dictionary *)conditions.second)->begin()->second;
         auto actionsKey = ((PList::Dictionary *)actions.second)->begin()->first;
         auto actionsValue = ((PList::Dictionary *)actions.second)->begin()->second;
-        bool paramValue = ((PList::Boolean *)this->mParameters->Find(keyMap.at(conditionsKey))->second)->GetValue();
+        auto conditionsIndex = keyMap.at(conditionsKey);
+        bool paramValue = false;
+        if(!conditionsIndex.empty()) {
+            auto conditionsFind = this->mParameters->Find(conditionsIndex);
+            if(!conditionsFind->first.empty()) {
+                paramValue = ((PList::Boolean *) conditionsFind->second)->GetValue();
+            }
+        }
         if(paramValue && conditionsValue) {
             entryDict->Set(actionsKey, std::make_unique<PList::Boolean>(paramValue).get());
         }
@@ -313,10 +350,10 @@ bool Tatsu::writeBlob(const std::string &blob) {
     if(blob.find("STATUS=0&MESSAGE=SUCCESS") != std::string::npos) {
         blobOut.erase(0, 40);
     } else {
-        fmt::print(fg(fmt::color::crimson), "{0}: Failed to save SHSH blobs!", __PRETTY_FUNCTION__);
+//        fmt::print(fg(fmt::color::crimson), "{0}: Failed to save SHSH blobs!", __PRETTY_FUNCTION__);
         return false;
     }
-//    auto blobPlist = PList::ModernStructure::FromXml(blobOut);
+    auto blobPlist = PList::ModernStructure::FromXml(blobOut);
 //    debug_plist(blobPlist->GetPlist());
     auto blobPath = fmt::format("{0}/{1}", std::string(std::filesystem::current_path()), std::string("blob.shsh2"));
     std::ofstream blobFileStream(blobPath, std::ios::out | std::ios::binary | std::ios::beg);
@@ -326,9 +363,11 @@ bool Tatsu::writeBlob(const std::string &blob) {
     }
     blobFileStream.write(&blobOut.at(0), (std::streamsize)blobOut.size());
     if(!blobFileStream.good()) {
+        blobFileStream.close();
         fmt::print(fg(fmt::color::crimson), "{0}: Failed to write {1} ({2})!\n", __PRETTY_FUNCTION__, blobPath, strerror(errno));
         return false;
     }
+    blobFileStream.close();
     fmt::print(fg((fmt::color)0x00c200), "{0}: Successfully saved SHSH blobs!\n", __PRETTY_FUNCTION__);
     return true;
 }
